@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Teacher – Smart Student Life (Local + AI)</title>
+<style>
+:root{--bg:#f7fafc;--panel:#fff;--soft:#f1f5f9;--border:#e5e7eb;--ink:#0f172a;--acc:#2563eb;--r:16px;--shadow:0 14px 36px rgba(2,6,23,.07)}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,Segoe UI,Roboto,Arial}
+.container{max-width:1100px;margin:auto;padding:16px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:14px;margin:12px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{padding:10px 14px;border-radius:12px;border:1px solid var(--border);background:var(--soft);cursor:pointer;font-weight:800}
+.btn.acc{background:var(--acc);border-color:var(--acc);color:#fff}
+input,textarea{padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#fff}
+textarea.share{width:100%;min-height:150px}
+.note{color:#64748b;font-size:13px}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{border:1px solid var(--border);padding:8px;text-align:center}
+.chatlog{background:#0f172a;color:#e5e7eb;border-radius:14px;padding:12px;min-height:220px}
+.chatlog .m{margin:6px 0;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <h3>إعدادات</h3>
+    <div class="row">
+      <input id="openaiKey" style="min-width:520px" placeholder="OpenAI API Key"/>
+      <button class="btn acc" id="saveKey">حفظ</button>
+      <span class="note">يُخزَّن محليًا.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>لصق أكواد مشاركة الطلاب (واحد في كل سطر)</h3>
+    <textarea id="codes" class="share" placeholder="ألصق أكواد الطلاب هنا… كل سطر كود مشاركة واحد"></textarea>
+    <div class="row"><button class="btn acc" id="load">تحميل اللوحة</button></div>
+    <table id="tbl" hidden>
+      <thead><tr><th>الطالب</th><th>التاريخ</th><th>منجز/إجمالي</th><th>خطوات</th><th>ماء</th><th>نقاط</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>تحليل AI للصف</h3>
+    <div class="row"><button class="btn" id="aiInsights">حلّل الأداء وقدّم تدخلات</button></div>
+    <div id="insights" class="chatlog"></div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+$('#openaiKey').value=localStorage.getItem('te:key')||''; $('#saveKey').onclick=()=>{ localStorage.setItem('te:key',$('#openaiKey').value.trim()); alert('تم الحفظ ✅'); };
+function expand(txt){ try{ return JSON.parse(decodeURIComponent(escape(atob(txt.trim())))); }catch{ return null; } }
+let rows=[];
+$('#load').onclick=()=>{
+  const lines=($('#codes').value||'').split('\n').map(x=>x.trim()).filter(Boolean);
+  rows=[]; const tbody=document.querySelector('#tbl tbody'); tbody.innerHTML='';
+  lines.forEach(line=>{ const d=expand(line); if(!d) return;
+    rows.push(d); const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${d.studentId}</td><td>${d.date}</td><td>${d.completedGoals}/${d.totalGoals}</td><td>${d.steps} / 11000</td><td>${d.water} / 2000</td><td>${d.points}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.querySelector('#tbl').hidden = rows.length===0;
+};
+function push(where, text){ const div=document.createElement('div'); div.className='m'; div.textContent=text; where.appendChild(div); where.scrollTop=where.scrollHeight; }
+async function callAI(prompt){
+  const key=(localStorage.getItem('te:key')||'').trim(); if(!key){ push($('#insights'),'⚠️ أدخل API Key أولًا'); return ''; }
+  const body={model:"gpt-4o-mini",messages:[{role:"system",content:"You are an Arabic assistant for teachers analyzing class performance and suggesting interventions."},{role:"user",content:prompt}],temperature:0.6};
+  const r=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+key},body:JSON.stringify(body)}); const j=await r.json(); return j?.choices?.[0]?.message?.content?.trim()||"";
+}
+document.querySelector('#aiInsights').onclick=async()=>{
+  const box=$('#insights'); box.innerHTML='';
+  if(!rows.length){ push(box,'⚠️ حمّل بيانات الطلاب أولًا'); return; }
+  const text=rows.map(d=>`- ${d.studentId} | date:${d.date} | goals ${d.completedGoals}/${d.totalGoals} | steps ${d.steps}/11000 | water ${d.water}/2000 | points ${d.points}`).join('\n');
+  const prompt=`حلّل أداء الصف من البيانات:\n${text}\nقسّم الطلاب إلى فئات (ملتزم/متذبذب/متأخر)، واشرح المعايير. أعطِ 6 تدخلات عملية (أنشطة قصيرة، تحديات خطوات، متابعات منزلية)، ومؤشرات قياس بسيطة للأسبوع القادم.`;
+  push(box,'تحليل البيانات…');
+  try{ const res=await callAI(prompt); if(res){ box.innerHTML=''; push(box,res); } }catch(e){ push(box,'خطأ: '+e.message); }
+};
+</script>
+</body></html>
