@@ -1,0 +1,17 @@
+{
+  "cleanUrls": true,
+  "routes": [
+    {
+      "src": "^/student$",
+      "dest": "/student.html"
+    },
+    {
+      "src": "^/parent$",
+      "dest": "/parent.html"
+    },
+    {
+      "src": "^/teacher$",
+      "dest": "/teacher.html"
+    }
+  ]
+}

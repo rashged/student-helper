@@ -1,0 +1,43 @@
+
+<!DOCTYPE html><html lang="ar" dir="rtl"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>وليّ الأمر</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><img src="logo.svg" class="logo"><h2>تقرير وليّ الأمر</h2></header>
+<div class="container">
+  <div class="card"><h3>الإعدادات</h3>
+    <div class="row"><input id="key" placeholder="OpenAI API Key"><button class="btn acc" id="saveKey">حفظ</button></div>
+  </div>
+  <div class="card"><h3>كود مشاركة الطالب</h3>
+    <textarea id="code" placeholder="ألصق كود المشاركة هنا"></textarea>
+    <div class="row"><button class="btn acc" id="load">تحميل</button></div>
+    <div class="card" id="summary"></div>
+  </div>
+  <div class="card"><h3>تقرير AI شامل</h3>
+    <button class="btn" id="gen">توليد التقرير</button>
+    <div class="card" id="report"></div>
+  </div>
+</div>
+<script type="module">
+  import { $, setKey, getKey, b64d, ai } from './shared.js';
+  $('#key').value=getKey('pa')||''; $('#saveKey').onclick=()=>{ setKey('pa',$('#key').value); alert('تم الحفظ'); };
+  let data=null;
+  $('#load').onclick=()=>{ data=b64d($('#code').value||''); if(!data){ $('#summary').innerHTML='<span class="tag">⚠️ كود غير صالح</span>'; return; }
+    $('#summary').innerHTML = `<h4>الطالب ${data.studentId} (${data.date})</h4>
+      <div class="row"><span class="tag">أهداف: ${data.completedGoals}/${data.totalGoals}</span><span class="tag">خطوات: ${data.steps}/11000</span><span class="tag">ماء: ${data.water}/2000</span><span class="tag">نقاط: ${data.points}</span></div>
+      <ul><li><b>منجز:</b> ${(data.goalsDone||[]).join('، ')||'—'}</li><li><b>متبقي:</b> ${(data.goalsPending||[]).join('، ')||'—'}</li><li><b>BMI:</b> ${data.bmi||'—'}</li></ul>`;
+  };
+  $('#gen').onclick=async()=>{
+    if(!data) return alert('حمّل بيانات الطالب أولاً');
+    $('#report').textContent='...';
+    const prompt=`اكتب تقريرًا مشجعًا منسقًا لوليّ الأمر عن الطالب ${data.studentId} بتاريخ ${data.date}.
+الأهداف: ${data.completedGoals}/${data.totalGoals}
+المتبقي: ${(data.goalsPending||[]).join(' | ') || 'لا شيء'}
+الخطوات: ${data.steps}/11000
+الماء: ${data.water}/2000
+BMI: ${data.bmi}
+النقاط: ${data.points}
+ضع توصيات مختصرة للأسبوع القادم.`;
+    try{ const res=await ai('pa',prompt,"كاتب تقارير عربية موجزة لولي الأمر."); $('#report').textContent=res; }catch(e){ $('#report').textContent='خطأ: '+e.message; }
+  };
+</script>
+</body></html>

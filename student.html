@@ -1,0 +1,69 @@
+
+<!DOCTYPE html><html lang="ar" dir="rtl"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>الطالب</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><img src="logo.svg" class="logo"><h2>لوحة الطالب</h2><span class="tag">🪙 <b id="coins">0</b></span></header>
+<div class="container">
+  <div class="card"><h3>الإعدادات</h3>
+    <div class="row"><input id="key" placeholder="OpenAI API Key"><button class="btn acc" id="saveKey">حفظ</button></div>
+  </div>
+  <div class="card"><h3>الأهداف</h3>
+    <div class="row"><input id="sid" placeholder="رقم الطالب (S-1001)"><input id="gIn" placeholder="هدف جديد"><select id="scope">
+      <option value="daily">يومي (15)</option><option value="weekly">أسبوعي (30)</option><option value="monthly">شهري (50)</option><option value="term">فصلي (80)</option><option value="yearly">سنوي (200)</option>
+    </select><button class="btn acc" id="addG">إضافة</button></div>
+    <div class="meter" style="margin:8px 0"><span id="gBar" style="width:0%"></span></div>
+    <ul id="gList"></ul>
+    <div class="row"><button class="btn" id="doneAll">إنهاء الكل</button><button class="btn" id="clearDone">حذف المكتمل</button></div>
+  </div>
+  <div class="card"><h3>الصحة</h3>
+    <div class="row"><input id="steps" placeholder="خطوات اليوم"><button class="btn acc" id="saveSteps">حفظ</button><span class="tag">هدف 11000</span></div>
+    <div class="meter"><span id="sBar" style="width:0%"></span></div>
+    <div class="row" style="margin-top:8px"><input id="h" placeholder="الطول (سم)"><input id="w" placeholder="الوزن (كجم)"><button class="btn" id="bmiBtn">BMI</button><span class="tag" id="bmiOut">—</span></div>
+    <div class="row" style="margin-top:8px"><input id="water" placeholder="شربت (مل)"><button class="btn" id="saveWater">حفظ</button><span class="tag" id="wOut">0/2000</span></div>
+  </div>
+  <div class="card"><h3>المساعد الذكي (شات)</h3>
+    <div class="chat" id="log"></div>
+    <div class="row"><input id="msg" placeholder="اسأل عن خطة أكل/دراسة…"><button class="btn acc" id="send">إرسال</button></div>
+    <div class="row"><button class="btn" id="genPlan">توليد خطة 30 يوم</button></div>
+  </div>
+  <div class="card"><h3>مشاركة</h3>
+    <button class="btn acc" id="share">توليد كود مشاركة</button>
+    <textarea id="shareOut" placeholder="سيظهر الكود هنا…" readonly></textarea>
+  </div>
+  <div class="card"><h3>المتجر</h3><div class="grid" id="shop"></div></div>
+</div>
+<script type="module">
+  import { $, $$, getKey, setKey, b64e, ai } from './shared.js';
+  // state
+  $('#key').value=getKey('st')||''; $('#saveKey').onclick=()=>{ setKey('st',$('#key').value); alert('تم الحفظ'); };
+  let coins=+localStorage.getItem('st:coins')||0; const setCoins=v=>{coins=v; localStorage.setItem('st:coins',v); $('#coins').textContent=v}; setCoins(coins);
+  let goals=JSON.parse(localStorage.getItem('st:goals')||'[]');
+  const R=s=>({daily:15,weekly:30,monthly:50,term:80,yearly:200}[s]||0);
+  function renderGoals(){ const list=$('#gList'); list.innerHTML=''; const total=goals.length||1, done=goals.filter(g=>g.done).length; $('#gBar').style.width=(done*100/total)+'%';
+    goals.forEach((g,i)=>{ const li=document.createElement('li'); li.innerHTML=(g.done?'✅ ':'⬜ ')+g.text+` <span class="tag">${g.scope} ${R(g.scope)}</span> <button class="btn" data-i="${i}" data-a="t">إنجاز</button> <button class="btn" data-i="${i}" data-a="d">حذف</button>`; list.appendChild(li); });
+  }
+  $('#addG').onclick=()=>{ const t=$('#gIn').value.trim(); const sc=$('#scope').value; if(!t) return; goals.push({text:t,scope:sc,done:false}); localStorage.setItem('st:goals',JSON.stringify(goals)); $('#gIn').value=''; renderGoals(); };
+  $('#gList').onclick=(e)=>{ const b=e.target.closest('button'); if(!b) return; const i=+b.dataset.i; const a=b.dataset.a; if(a==='t'){ goals[i].done=!goals[i].done; setCoins(coins+(goals[i].done?R(goals[i].scope):-R(goals[i].scope))); } else { goals.splice(i,1);} localStorage.setItem('st:goals',JSON.stringify(goals)); renderGoals(); };
+  $('#doneAll').onclick=()=>{ goals.forEach(g=>{ if(!g.done){ g.done=true; setCoins(coins+R(g.scope)); }}); localStorage.setItem('st:goals',JSON.stringify(goals)); renderGoals(); };
+  $('#clearDone').onclick=()=>{ goals=goals.filter(g=>!g.done); localStorage.setItem('st:goals',JSON.stringify(goals)); renderGoals(); };
+  // health
+  function rs(){ const v=+localStorage.getItem('st:steps')||0; $('#sBar').style.width=Math.min(100,Math.round(v*100/11000))+'%'; }
+  $('#saveSteps').onclick=()=>{ const v=+($('#steps').value||0); localStorage.setItem('st:steps',v); rs(); if(v>=11000){ alert('🎉 ممتاز! +15'); setCoins(coins+15);} };
+  $('#bmiBtn').onclick=()=>{ const h=+$('#h').value/100, w=+$('#w').value; if(!h||!w) return $('#bmiOut').textContent='أدخل القيم'; const bmi=(w/(h*h)).toFixed(1); let s=''; if(bmi<18.5)s='نحيف'; else if(bmi<25)s='طبيعي'; else if(bmi<30)s='وزن زائد'; else s='سمنة'; $('#bmiOut').textContent=`BMI ${bmi} (${s})`; };
+  function rw(){ const v=+localStorage.getItem('st:water')||0; $('#wOut').textContent=`${v}/2000`; }
+  $('#saveWater').onclick=()=>{ const v=+($('#water').value||0); localStorage.setItem('st:water',v); rw(); };
+  // share
+  $('#share').onclick=()=>{ const sid=($('#sid').value||'').trim()||'S-000'; localStorage.setItem('st:sid',sid);
+    const data={ studentId:sid, date:new Date().toISOString().slice(0,10), completedGoals:goals.filter(g=>g.done).length, totalGoals:goals.length, steps:+(localStorage.getItem('st:steps')||0), water:+(localStorage.getItem('st:water')||0), bmi:($('#bmiOut').textContent||''), points:coins, goalsDone:goals.filter(g=>g.done).map(g=>g.text), goalsPending:goals.filter(g=>!g.done).map(g=>g.text)};
+    $('#shareOut').value=b64e(data); alert('✅ تم توليد الكود');
+  };
+  // AI chat
+  const log=$('#log'); const push=(cls,txt)=>{ const d=document.createElement('div'); d.className='msg '+cls; d.textContent=txt; log.appendChild(d); log.scrollTop=log.scrollHeight; };
+  $('#send').onclick=async()=>{ const m=$('#msg').value.trim(); if(!m) return; $('#msg').value=''; push('me',m); try{ const res=await ai('st', m,"مدرّب عربي للطلاب: صحة، دراسة، تغذية."); push('ai',res);}catch(e){ push('ai','خطأ: '+e.message);} };
+  $('#genPlan').onclick=async()=>{ try{ push('me','أريد خطة 30 يوم'); const res=await ai('st',"أنشئ خطة أكل عربية بسيطة لمدة 30 يوم لطالب. ضع الأيام 1..30 مع فطور/غداء/عشاء/سناك بنقاط مختصرة."); push('ai',res);}catch(e){ push('ai','خطأ: '+e.message);} };
+  // shop
+  const grid=$('#shop'); ['🙂','😎','🐯','🦉','🐱','🐼'].forEach(em=>{ const d=document.createElement('div'); d.className='prod'; d.innerHTML=`<div style="font-size:54px">${em}</div><button class="btn">تعيين</button>`; d.querySelector('button').onclick=()=>{ localStorage.setItem('sl:avatar',em); alert('تم تعيين '+em); }; grid.appendChild(d); });
+  // init
+  rs(); rw(); renderGoals();
+</script>
+</body></html>

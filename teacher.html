@@ -1,0 +1,43 @@
+
+<!DOCTYPE html><html lang="ar" dir="rtl"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>المعلّم</title><link rel="stylesheet" href="styles.css"></head><body>
+<header><img src="logo.svg" class="logo"><h2>لوحة المعلم</h2></header>
+<div class="container">
+  <div class="card"><h3>الإعدادات</h3>
+    <div class="row"><input id="key" placeholder="OpenAI API Key"><button class="btn acc" id="saveKey">حفظ</button></div>
+  </div>
+  <div class="card"><h3>أكواد الطلاب (كل سطر كود)</h3>
+    <textarea id="codes" placeholder="ألصق أكواد المشاركة هنا"></textarea>
+    <div class="row"><button class="btn acc" id="load">تحميل</button></div>
+    <div class="card">
+      <table id="tbl" hidden><thead><tr><th>الطالب</th><th>التاريخ</th><th>منجز/إجمالي</th><th>خطوات</th><th>ماء</th><th>نقاط</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <div class="card"><h3>تحليل AI للصف</h3><button class="btn" id="analyze">حلّل</button><div class="card" id="out"></div></div>
+</div>
+<script type="module">
+  import { $, setKey, getKey, b64d, ai } from './shared.js';
+  $('#key').value=getKey('te')||''; $('#saveKey').onclick=()=>{ setKey('te',$('#key').value); alert('تم الحفظ'); };
+  let rows=[];
+  $('#load').onclick=()=>{
+    rows=[]; const tbody=document.querySelector('#tbl tbody'); tbody.innerHTML='';
+    ($('#codes').value||'').split('\n').map(x=>x.trim()).filter(Boolean).forEach(c=>{
+      const d=b64d(c); if(!d) return;
+      rows.push(d); const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${d.studentId}</td><td>${d.date}</td><td>${d.completedGoals}/${d.totalGoals}</td><td>${d.steps}/11000</td><td>${d.water}/2000</td><td>${d.points}</td>`;
+      tbody.appendChild(tr);
+    });
+    document.querySelector('#tbl').hidden = rows.length===0;
+  };
+  $('#analyze').onclick=async()=>{
+    if(!rows.length) return alert('حمّل بيانات الطلاب أولاً');
+    $('#out').textContent='...';
+    const lines=rows.map(d=>`- ${d.studentId} | ${d.date} | goals ${d.completedGoals}/${d.totalGoals} | steps ${d.steps}/11000 | water ${d.water}/2000 | points ${d.points}`).join('\n');
+    const prompt=`حلّل أداء الصف بصورة مختصرة ومركزة، صنّف الطلاب لثلاث فئات وقدّم 6 تدخلات عملية.
+البيانات:
+${lines}`;
+    try{ const res=await ai('te',prompt,"مستشار تربوي عربي يقدّم نقاط موجزة قابلة للتطبيق."); $('#out').textContent=res; }catch(e){ $('#out').textContent='خطأ: '+e.message; }
+  };
+</script>
+</body></html>
